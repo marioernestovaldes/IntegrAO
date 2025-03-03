@@ -68,7 +68,7 @@ class integrao_integrater(object):
 
     def network_diffusion(self):
         S_dfs = []
-        for i, name in zip(range(0, len(self.datasets)), self.modalities_name_list):
+        for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
 
             if view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
@@ -223,9 +223,17 @@ class integrao_predictor(object):
 
     def network_diffusion(self):
         S_dfs = []
-        for i in range(0, len(self.datasets)):
+        for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
-            dist_mat = dist2(view.values, view.values)
+
+            if view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
+                print(f'Using Euclidean distance for dataset {name}...')
+                dist_mat = dist2(view.values, view.values)
+            else:
+                print(f'Using Gower distance for dataset {name}...')
+                view = view.astype(float)  # Convert all numerical columns to float
+                dist_mat = gower.gower_matrix(view)
+
             S_mat = snf.compute.affinity_matrix(
                 dist_mat, K=self.neighbor_size, mu=self.mu
             )
@@ -259,7 +267,7 @@ class integrao_predictor(object):
         return model
     
     def inference_unsupervised(self, model_path, new_datasets, modalities_names):
-        # loop through the new_dataset and create Graphdatase
+        # loop through the new_dataset and create GraphDataset
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         from integrao.IntegrAO_unsupervised import IntegrAO
