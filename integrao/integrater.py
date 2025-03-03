@@ -76,6 +76,7 @@ class integrao_integrater(object):
                 dist_mat = dist2(view.values, view.values)
             else:
                 print(f'Using Gower distance for dataset {name}...')
+                view = view.astype(float)  # Convert all numerical columns to float
                 dist_mat = gower.gower_matrix(view)
 
             S_mat = snf.compute.affinity_matrix(
