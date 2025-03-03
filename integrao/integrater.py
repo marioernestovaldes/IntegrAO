@@ -14,6 +14,14 @@ import torch_geometric.transforms as T
 import torch.nn.functional as F
 from integrao.dataset import GraphDataset
 
+try:
+    import gower  # Try importing Gower
+except ImportError:
+    import subprocess
+    print("Gower library not found. Installing now...")
+    subprocess.check_call(["pip", "install", "gower"])
+    import gower  # Import again after installation
+
 
 class integrao_integrater(object):
     def __init__(
@@ -60,9 +68,16 @@ class integrao_integrater(object):
 
     def network_diffusion(self):
         S_dfs = []
-        for i in range(0, len(self.datasets)):
+        for i, name in zip(range(0, len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
-            dist_mat = dist2(view.values, view.values)
+
+            if np.issubdtype(view.dtypes, np.number).all():
+                print(f'Using Euclidean distance for dataset {name}...')
+                dist_mat = dist2(view.values, view.values)
+            else:
+                print(f'Using Gower distance for dataset {name}...')
+                dist_mat = gower.gower_matrix(view)
+
             S_mat = snf.compute.affinity_matrix(
                 dist_mat, K=self.neighbor_size, mu=self.mu
             )
