@@ -350,6 +350,7 @@ class integrao_predictor(object):
         # prepare the data
         x_dict = {}
         edge_index_dict = {}
+        modalities_columns = {}
         for i, modal in enumerate(new_datasets):
             model_name = modalities_names[i]
             modal_index = self.modalities_name_list.index(model_name)
@@ -364,6 +365,7 @@ class integrao_predictor(object):
 
             x_dict[modal_index] = modal_dg.x
             edge_index_dict[modal_index] = modal_dg.edge_index
+            modalities_columns[model_name] = modal.columns.to_list()
 
         # Loop over each domain (modality)
         # ---------------------------------------------------------
@@ -386,13 +388,14 @@ class integrao_predictor(object):
 
 
         df_list = []
-        for domain in feat_importances:
+        for domain, cols in zip(feat_importances, modalities_columns.values()):
 
             # Concatenate along the first axis (nodes).
             feat_importances[domain] = np.concatenate(feat_importances[domain], axis=0)
             num_feats = feat_importances[domain].shape[1]
-            # Create a DataFrame; here columns are named feat_0, feat_1, etc.
-            df = pd.DataFrame(feat_importances[domain], columns=[f'feat_{i}' for i in range(num_feats)])
+            ## Create a DataFrame; here columns are named the same as in the original datasets, etc.
+            # df = pd.DataFrame(feat_importances[domain], columns=[f'feat_{i}' for i in range(num_feats)])
+            df = pd.DataFrame(feat_importances[domain], columns=cols)
             df_list.append(df)
 
             # save the feature importance
