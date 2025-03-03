@@ -71,7 +71,7 @@ class integrao_integrater(object):
         for i, name in zip(range(0, len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
 
-            if all(np.issubdtype(dtype, np.number) for dtype in view.dtypes):
+            if view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
                 print(f'Using Euclidean distance for dataset {name}...')
                 dist_mat = dist2(view.values, view.values)
             else:
