@@ -428,11 +428,14 @@ class integrao_predictor(object):
             x_dict, edge_index_dict, self.dict_original_order
         )
 
-        preds = F.softmax(preds, dim=1)
-        preds = preds.detach().cpu().numpy()
-        preds = np.argmax(preds, axis=1)
+        # Convert logits to probabilities
+        probs = F.softmax(preds, dim=1)
+        probs_np = probs.detach().cpu().numpy()  # Convert to NumPy array
 
-        return preds
+        # Get predicted classes
+        class_preds = np.argmax(probs_np, axis=1)  # Get highest probability class
+
+        return class_preds, probs_np  # Return both class labels and probabilities
 
 
     def interpret_supervised(self, model_path, result_dir, new_datasets, modalities_names):
