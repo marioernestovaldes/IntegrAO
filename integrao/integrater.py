@@ -223,9 +223,17 @@ class integrao_predictor(object):
 
     def network_diffusion(self):
         S_dfs = []
-        for i in range(0, len(self.datasets)):
+        for i, name in zip(range(0, len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
-            dist_mat = dist2(view.values, view.values)
+
+            if view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
+                print(f'Using Euclidean distance for dataset {name}...')
+                dist_mat = dist2(view.values, view.values)
+            else:
+                print(f'Using Gower distance for dataset {name}...')
+                view = view.astype(float)  # Convert all numerical columns to float
+                dist_mat = gower.gower_matrix(view)
+
             S_mat = snf.compute.affinity_matrix(
                 dist_mat, K=self.neighbor_size, mu=self.mu
             )
@@ -428,11 +436,14 @@ class integrao_predictor(object):
             x_dict, edge_index_dict, self.dict_original_order
         )
 
-        preds = F.softmax(preds, dim=1)
-        preds = preds.detach().cpu().numpy()
-        preds = np.argmax(preds, axis=1)
+        # Convert logits to probabilities
+        probs = F.softmax(preds, dim=1)
+        probs_np = probs.detach().cpu().numpy()  # Convert to NumPy array
 
-        return preds
+        # Get predicted classes
+        class_preds = np.argmax(probs_np, axis=1)  # Get highest probability class
+
+        return class_preds, probs_np  # Return both class labels and probabilities
 
 
     def interpret_supervised(self, model_path, result_dir, new_datasets, modalities_names):
