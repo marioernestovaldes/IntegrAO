@@ -154,7 +154,6 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
     optimizer = torch.optim.Adam(Project_GNN.parameters(), lr=1e-1)
     c_mse = nn.MSELoss()
 
-
     for epoch in range(alighment_epochs):
         adjust_learning_rate(optimizer, epoch)
 

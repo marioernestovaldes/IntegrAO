@@ -8,6 +8,7 @@ from sklearn.utils.validation import (
     check_consistent_length,
 )
 
+
 def dist2(X, C):
     """
     Description: Computes the Euclidean distances between all pairs of data point given
@@ -75,7 +76,6 @@ def _find_dominate_set_relative(W, K=20):
     Ws = Wk + np.transpose(Wk)
 
     return Ws
-
 
 
 def _stable_normalized(W):
@@ -264,9 +264,11 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
 
                 # reorder mat_tofuse to have the common samples
                 # Optimized (cache values before reuse)
-                sample_order = sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)])
-                mat_tofuse = mat_tofuse.reindex(sample_order, axis=1)
-                mat_tofuse = mat_tofuse.reindex(sample_order, axis=0)
+                # Precompute sample order as a NumPy array
+                sample_order = np.array(sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)]))
+
+                # Use .loc for fast reordering instead of reindex
+                mat_tofuse = mat_tofuse.loc[sample_order, sample_order]
 
                 # Next, let's crop mat_tofuse
                 num_common = len(dicts_common[(n, j)])
