@@ -71,7 +71,7 @@ class integrao_integrater(object):
         for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
 
-            if name == 'protein_cosine':
+            if name == 'protein-cosine':
                 print(f'Using Cosine distance for dataset {name}...')
                 from sklearn.metrics.pairwise import cosine_distances
                 # compute cosine distances
@@ -231,7 +231,7 @@ class integrao_predictor(object):
         for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
 
-            if name == 'protein_cosine':
+            if name == 'protein-cosine':
                 print(f'Using Cosine distance for dataset {name}...')
                 from sklearn.metrics.pairwise import cosine_distances
                 # compute cosine distances

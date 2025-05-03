@@ -105,7 +105,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         print("Error: number of dimensions should be an integer.")
         return -1
 
-    print("Starting unsupervised exmbedding extraction!")
+    print("Starting unsupervised embedding extraction!")
     start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
