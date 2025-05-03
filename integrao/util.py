@@ -6,6 +6,7 @@
 
 import numpy as np
 from collections import defaultdict
+from scipy.sparse import csr_matrix
 
 
 def data_indexing(matrices):

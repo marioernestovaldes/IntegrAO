@@ -21,7 +21,7 @@ except ImportError:
     print("Gower library not found. Installing now...")
     subprocess.check_call(["pip", "install", "gower"])
     import gower  # Import again after installation
-
+from scipy.sparse import csr_matrix
 
 class integrao_integrater(object):
     def __init__(

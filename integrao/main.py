@@ -8,6 +8,8 @@ from sklearn.utils.validation import (
     check_consistent_length,
 )
 
+from scipy.sparse import csr_matrix
+
 def dist2(X, C):
     """
     Description: Computes the Euclidean distances between all pairs of data point given
