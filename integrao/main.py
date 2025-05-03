@@ -279,9 +279,15 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                 rowSum[rowSum == 0] = 1
                 mat_tofuse_union = (mat_tofuse_union.T / rowSum).T * 0.5 * (mat_tofuse_crop.shape[0] / nzW.shape[0])
                 np.fill_diagonal(mat_tofuse_union, 1 - 0.5 * (mat_tofuse_crop.shape[0] / nzW.shape[0]))
-
-
                 mat_tofuse_union = check_symmetric(mat_tofuse_union)
+
+                # Convert back to DataFrame to preserve downstream .reindex() behavior
+                mat_tofuse_union = pd.DataFrame(
+                    mat_tofuse_union,
+                    index=mat_tofuse_crop.index,
+                    columns=mat_tofuse_crop.columns
+                )
+
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1).reindex(original_order[n],
                                                                                                axis=0)
                 print(f"[{n},{j}] identity_addition: {time.time() - t0:.4f}s")
