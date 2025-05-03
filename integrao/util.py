@@ -7,6 +7,7 @@
 import numpy as np
 from collections import defaultdict
 
+
 def data_indexing(matrices):
     """
     Performs data indexing on input expression matrices
@@ -25,8 +26,6 @@ def data_indexing(matrices):
     dict_uniqueSample: dictionaries that give you the unique samples between 2 views
     original_order: the original order of samples for each view
     """
-
-    from collections import defaultdict
 
     if len(matrices) < 1:
         print("Input nothing, return nothing")
