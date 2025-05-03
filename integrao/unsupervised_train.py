@@ -18,43 +18,59 @@ from integrao.dataset import GraphDataset
 import torch_geometric.transforms as T
 
 
-def tsne_loss(P, activations, threshold=10000):
+def tsne_loss(P, activations, threshold=10000, sample_size=3000):
     """
     Computes KL divergence loss between P and Q.
-    Automatically uses CPU if P is too large.
+    Uses sampling if sample_size < n. Falls back to CPU if effective size >= threshold.
+
+    Parameters:
+    - P: torch.Tensor, shape (n, n) — similarity matrix
+    - activations: torch.Tensor, shape (n, d) — low-dimensional embeddings
+    - threshold: int — if effective size >= threshold, move to CPU
+    - sample_size: int — if set and < n, compute KL on a subset
+
+    Returns:
+    - KL divergence (scalar tensor) on GPU
     """
     eps = 1e-12
-
-    # Detect whether P is large and needs CPU fallback
     n = P.shape[0]
-    use_cpu = n >= threshold
     device = activations.device
 
-    if use_cpu:
-        print(f"Using CPU for tsne_loss (P shape: {P.shape})")
-        P_cpu = P.cpu()
-        activations_cpu = activations.detach().cpu()
-    else:
-        print(f"Using GPU for tsne_loss (P shape: {P.shape})")
-        P_cpu = P.to(device)
-        activations_cpu = activations  # already on GPU
+    # Decide whether to sample
+    effective_n = sample_size if sample_size and sample_size < n else n
+    use_cpu = effective_n >= threshold
 
-    sum_act = torch.sum(torch.pow(activations_cpu, 2), 1)
+    if use_cpu:
+        print(f"Using CPU for tsne_loss (effective N={effective_n})")
+        P = P.cpu()
+        activations = activations.detach().cpu()
+    else:
+        print(f"Using GPU for tsne_loss (effective N={effective_n})")
+        P = P.to(device)
+        activations = activations  # already on GPU
+
+    # If using sampling, select subset of rows/cols
+    if sample_size and sample_size < n:
+        idx = torch.randperm(n)[:sample_size]
+        P = P[idx][:, idx]
+        activations = activations[idx]
+        n = sample_size
+
+    # Compute pairwise squared distances
+    sum_act = torch.sum(activations**2, dim=1)
     Q = (
-        sum_act
-        + sum_act.view([-1, 1])
-        - 2 * torch.matmul(activations_cpu, torch.transpose(activations_cpu, 0, 1))
+        sum_act.view([-1, 1]) + sum_act.view([1, -1])
+        - 2.0 * activations @ activations.T
     )
-    Q = Q / 1.0
-    Q = torch.pow(1 + Q, -1.0)
-    Q = Q * (1 - torch.eye(n, device=Q.device))
-    Q = Q / torch.sum(Q)
+    Q = (1 + Q).pow(-1.0)
+    Q.fill_diagonal_(0.0)
+    Q = Q / Q.sum()
     Q = torch.clamp(Q, min=eps)
 
-    C = torch.log((P_cpu + eps) / (Q + eps))
-    C = torch.sum(P_cpu * C)
+    P = P / P.sum()
+    C = torch.sum(P * torch.log((P + eps) / (Q + eps)))
 
-    return C.to(device)  # Always return on GPU for training
+    return C.to(device)
 
 
 def adjust_learning_rate(optimizer, epoch):
