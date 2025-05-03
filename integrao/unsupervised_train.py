@@ -31,11 +31,11 @@ def tsne_loss(P, activations, threshold=10000):
     device = activations.device
 
     if use_cpu:
-        print(f"⚠️  Using CPU for tsne_loss (P shape: {P.shape})")
+        print(f"Using CPU for tsne_loss (P shape: {P.shape})")
         P_cpu = P.cpu()
         activations_cpu = activations.detach().cpu()
     else:
-        print(f"✅ Using GPU for tsne_loss (P shape: {P.shape})")
+        print(f"Using GPU for tsne_loss (P shape: {P.shape})")
         P_cpu = P.to(device)
         activations_cpu = activations  # already on GPU
 
