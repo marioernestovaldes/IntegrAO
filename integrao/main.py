@@ -263,26 +263,24 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                     continue
 
                 # reorder mat_tofuse to have the common samples
-                mat_tofuse = mat_tofuse.reindex(
-                    (sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)])),
-                    axis=1,
-                )
-                mat_tofuse = mat_tofuse.reindex(
-                    (sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)])),
-                    axis=0,
-                )
+                # Optimized (cache values before reuse)
+                sample_order = sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)])
+                mat_tofuse = mat_tofuse.reindex(sample_order, axis=1)
+                mat_tofuse = mat_tofuse.reindex(sample_order, axis=0)
 
                 # Next, let's crop mat_tofuse
                 num_common = len(dicts_common[(n, j)])
-                to_drop_mat = mat_tofuse.columns[
-                              num_common: mat_tofuse.shape[1]
-                              ].values.tolist()
+                mat_cols = mat_tofuse.columns
+                mat_shape = mat_tofuse.shape
+                to_drop_mat = mat_cols[num_common: mat_shape[1]].values.tolist()
+
                 mat_tofuse_crop = mat_tofuse.drop(to_drop_mat, axis=1)
                 mat_tofuse_crop = mat_tofuse_crop.drop(to_drop_mat, axis=0)
 
                 # Next, add the similarity from the view to fused to the current view identity matrix
+                nzW_shape = nzW.shape[0]
                 nzW_identity = pd.DataFrame(
-                    data=np.identity(nzW.shape[0]),
+                    data=np.identity(nzW_shape),
                     index=original_order[n],
                     columns=original_order[n],
                 )
