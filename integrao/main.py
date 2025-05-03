@@ -311,7 +311,12 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                     print(f"[{n},{j}] Sparse multiplication: {time.time() - t0:.4f}s")
 
                 t0 = time.time()
-                aff0_temp = _stable_normalized_pd(aff0_temp)
+                W = aff0_temp.values.copy()
+                rowSum = np.sum(W, axis=1) - np.diag(W)
+                rowSum[rowSum == 0] = 1
+                W = (W.T / (2 * rowSum)).T
+                np.fill_diagonal(W, 0.5)
+                aff0_temp = pd.DataFrame(W, index=aff0_temp.index, columns=aff0_temp.columns)
                 aff_next[n] = np.add(aff0_temp, aff_next[n])
                 print(f"[{n},{j}] final_normalization: {time.time() - t0:.4f}s")
 
