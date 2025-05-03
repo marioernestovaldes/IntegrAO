@@ -11,6 +11,8 @@ def data_indexing(matrices):
     """
     Performs data indexing on input expression matrices
 
+    Fast version of data_indexing using dictionaries and vectorized operations
+
     Parameters
     ----------
     matrices : (M, N) array_like
@@ -24,49 +26,52 @@ def data_indexing(matrices):
     original_order: the original order of samples for each view
     """
 
+    from collections import defaultdict
+
     if len(matrices) < 1:
         print("Input nothing, return nothing")
         return None
 
     print("Start indexing input expression matrices!")
 
-    original_order = [0] * (len(matrices))
-    dict_original_order = {}
-    dict_commonSample = {}
-    dict_uniqueSample = {}
-    dict_commonSampleIndex = {}
+    original_order = [list(df.index) for df in matrices]
+    dict_original_order = {i: original_order[i] for i in range(len(matrices))}
     dict_sampleToIndexs = defaultdict(list)
 
-    for i in range(0, len(matrices)):
-        original_order[i] = list(matrices[i].index)
-        dict_original_order[i] = original_order[i]
-        for sample in original_order[i]:
-            dict_sampleToIndexs[sample].append(
-                (i, np.argwhere(matrices[i].index == sample).squeeze().tolist())
-            )
+    # Create fast lookup: sample → index in each view
+    sample_to_index = [
+        {sample: idx for idx, sample in enumerate(df.index)}
+        for df in matrices
+    ]
 
-    for i in range(0, len(original_order)):
-        for j in range(i + 1, len(original_order)):
-            commonList = list(set(original_order[i]).intersection(original_order[j]))
-            print("Common sample between view{} and view{}: {}".format(i, j, len(commonList)))
-            dict_commonSample.update(
-                dict_commonSample.fromkeys([(i, j), (j, i)], commonList)
-            )
-            dict_commonSampleIndex[(i, j)] = [
-                np.argwhere(matrices[i].index == x).squeeze().tolist()
-                for x in commonList
-            ]
-            dict_commonSampleIndex[(j, i)] = [
-                np.argwhere(matrices[j].index == x).squeeze().tolist()
-                for x in commonList
-            ]
+    # Populate dict_sampleToIndexs efficiently
+    for i, order in enumerate(original_order):
+        for idx, sample in enumerate(order):
+            dict_sampleToIndexs[sample].append((i, idx))
 
-            dict_uniqueSample[(i, j)] = list(
-                set(original_order[i]).symmetric_difference(commonList)
-            )
-            dict_uniqueSample[(j, i)] = list(
-                set(original_order[j]).symmetric_difference(commonList)
-            )
+    dict_commonSample = {}
+    dict_commonSampleIndex = {}
+    dict_uniqueSample = {}
+
+    for i in range(len(matrices)):
+        for j in range(i + 1, len(matrices)):
+            set_i = set(original_order[i])
+            set_j = set(original_order[j])
+            common_samples = list(set_i & set_j)
+
+            print(f"Common sample between view{i} and view{j}: {len(common_samples)}")
+
+            dict_commonSample[(i, j)] = common_samples
+            dict_commonSample[(j, i)] = common_samples
+
+            dict_commonSampleIndex[(i, j)] = [sample_to_index[i][s] for s in common_samples]
+            dict_commonSampleIndex[(j, i)] = [sample_to_index[j][s] for s in common_samples]
+
+            unique_i = list(set_i - set_j)
+            unique_j = list(set_j - set_i)
+
+            dict_uniqueSample[(i, j)] = unique_i
+            dict_uniqueSample[(j, i)] = unique_j
 
     return (
         dict_commonSample,
