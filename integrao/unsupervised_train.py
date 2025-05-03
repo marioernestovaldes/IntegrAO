@@ -167,7 +167,9 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         embeddings = Project_GNN(x_dict, edge_index_dict)
         embeddings = list(embeddings.values())
         for i, X_embedding in enumerate(embeddings):
-            kl_loss += tsne_loss(P[i], X_embedding)
+            n = P[i].shape[0]
+            sample_size = 3000 if n > 10000 else None  # use sampling only if too large
+            kl_loss += tsne_loss(P[i], X_embedding, threshold=10000, sample_size=sample_size)
 
         # pairwise alignment loss between each pair of networks
         alignment_loss = np.array(0)
