@@ -8,7 +8,6 @@ from sklearn.utils.validation import (
     check_consistent_length,
 )
 
-
 def dist2(X, C):
     """
     Description: Computes the Euclidean distances between all pairs of data point given
@@ -220,137 +219,101 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
     """
 
     print("Start applying diffusion!")
-
     start_time = time.time()
-
     newW = [0] * len(aff)
 
-    # First, normalize different networks to avoid scale problems, it is compatible with pandas dataframe
     for n, mat in enumerate(aff):
-        # normalize affinity matrix based on strength of edges
-        # mat = mat / np.nansum(mat, axis=1, keepdims=True)
+        t0 = time.time()
         aff[n] = _stable_normalized_pd(mat)
-        # aff[n] = check_symmetric(mat, raise_warning=False)
-
-        # apply KNN threshold to normalized affinity matrix
-        # We need to crop the intersecting samples from newW matrices
         neighbor_size = min(int(neighbor_size), mat.shape[0])
         newW[n] = _find_dominate_set(aff[n], neighbor_size)
+        print(f"[{n}] normalization_and_knn: {time.time() - t0:.4f}s")
 
-    # If there is only one view, return it
     if len(aff) == 1:
         print("Only one view, return it directly")
         return newW
 
     for iteration in range(fusing_iteration):
-
-        # Make a copy of the aff matrix for this iteration
-        # goal is to update aff[n], but it is the average of all the defused matrices
-        # Make a copy of add[n], and set it to 0
+        print(f"\n-- Iteration {iteration + 1} --")
         aff_next = []
         for k in range(len(aff)):
+            t0 = time.time()
             aff_temp = aff[k].copy()
             for col in aff_temp.columns:
                 aff_temp[col].values[:] = 0
             aff_next.append(aff_temp)
+            print(f"View {k}: prepare_aff_next: {time.time() - t0:.4f}s")
 
         for n, mat in enumerate(aff):
-            # temporarily convert nans to 0 to avoid propagation errors
-            nzW = newW[n]  # TODO: not sure this is a deep copy or not
-
+            nzW = newW[n]
             for j, mat_tofuse in enumerate(aff):
                 if n == j:
                     continue
 
-                # reorder mat_tofuse to have the common samples
-                # Optimized (cache values before reuse)
-                # Precompute sample order as a NumPy array
+                t0 = time.time()
                 sample_order = np.array(sorted(dicts_common[(j, n)]) + sorted(dicts_unique[(j, n)]))
-
-                # Use .loc for fast reordering instead of reindex
                 mat_tofuse = mat_tofuse.loc[sample_order, sample_order]
 
-                # Next, let's crop mat_tofuse
                 num_common = len(dicts_common[(n, j)])
                 mat_cols = mat_tofuse.columns
                 mat_shape = mat_tofuse.shape
                 to_drop_mat = mat_cols[num_common: mat_shape[1]].values.tolist()
+                mat_tofuse_crop = mat_tofuse.drop(to_drop_mat, axis=1).drop(to_drop_mat, axis=0)
+                print(f"[{n},{j}] reindex_and_crop: {time.time() - t0:.4f}s")
 
-                mat_tofuse_crop = mat_tofuse.drop(to_drop_mat, axis=1)
-                mat_tofuse_crop = mat_tofuse_crop.drop(to_drop_mat, axis=0)
 
-                # Next, add the similarity from the view to fused to the current view identity matrix
-                nzW_shape = nzW.shape[0]
-                nzW_identity = pd.DataFrame(
-                    data=np.identity(nzW_shape),
-                    index=original_order[n],
-                    columns=original_order[n],
-                )
 
-                mat_tofuse_union = nzW_identity + mat_tofuse_crop
-                mat_tofuse_union.fillna(0.0, inplace=True)
-                mat_tofuse_union = _scaling_normalized_pd(mat_tofuse_union,
-                                                          ratio=mat_tofuse_crop.shape[0] / nzW_identity.shape[0])
-                mat_tofuse_union = check_symmetric(mat_tofuse_union, raise_warning=False)
-                mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1)
-                mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=0)
 
-                # Now we are ready to do the diffusion
+                t0 = time.time()
+                # nzW_identity = pd.DataFrame(np.identity(nzW.shape[0]), index=original_order[n],
+                #                             columns=original_order[n])
+                # mat_tofuse_union = nzW_identity + mat_tofuse_crop
+                # mat_tofuse_union.fillna(0.0, inplace=True)
+                # mat_tofuse_union = _scaling_normalized_pd(mat_tofuse_union,
+                #                                           ratio=mat_tofuse_crop.shape[0] / nzW_identity.shape[0])
+
+                mat_tofuse_union = mat_tofuse_crop.values.copy()
+                np.fill_diagonal(mat_tofuse_union, mat_tofuse_union.diagonal() + 1.0)
+
+                rowSum = np.sum(mat_tofuse_union, axis=1) - np.diag(mat_tofuse_union)
+                rowSum[rowSum == 0] = 1
+                mat_tofuse_union = (mat_tofuse_union.T / rowSum).T * 0.5 * (mat_tofuse_crop.shape[0] / nzW.shape[0])
+                np.fill_diagonal(mat_tofuse_union, 1 - 0.5 * (mat_tofuse_crop.shape[0] / nzW.shape[0]))
+
+
+                mat_tofuse_union = check_symmetric(mat_tofuse_union)
+                mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1).reindex(original_order[n],
+                                                                                               axis=0)
+                print(f"[{n},{j}] identity_addition: {time.time() - t0:.4f}s")
+
 
                 if newW[n].shape[0] < 2000:
-                    print('Using dense matrix...')
+                    t0 = time.time()
                     nzW_T = np.transpose(nzW)
-
-                    start = time.time()
-                    aff0_temp = nzW.dot(
-                        mat_tofuse_union.dot(nzW_T)
-                    )
-                    elapsed = time.time() - start
-                    print(f"Dense multiplication took {elapsed:.4f} seconds.")
-
+                    aff0_temp = nzW.dot(mat_tofuse_union.dot(nzW_T))
+                    print(f"[{n},{j}] Dense multiplication: {time.time() - t0:.4f}s")
                 else:
-                    print('Using sparse matrix...')
-                    from scipy.sparse import csr_matrix
-
+                    t0 = time.time()
                     nzW_sparse = csr_matrix(newW[n].values)
                     nzW_T_sparse = nzW_sparse.transpose()
                     mat_union_dense = mat_tofuse_union.values
+                    intermediate = nzW_sparse @ mat_union_dense
+                    aff0_temp_np = intermediate @ nzW_T_sparse
+                    aff0_temp = pd.DataFrame(aff0_temp_np, index=original_order[n], columns=original_order[n])
+                    print(f"[{n},{j}] Sparse multiplication: {time.time() - t0:.4f}s")
 
-                    start = time.time()
-                    intermediate = nzW_sparse @ mat_union_dense  # sparse × dense → dense
-                    aff0_temp_np = intermediate @ nzW_T_sparse  # dense × sparse → dense
-                    elapsed = time.time() - start
-                    print(f"Sparse multiplication took {elapsed:.4f} seconds.")
-
-                    aff0_temp = pd.DataFrame(
-                        aff0_temp_np,
-                        index=original_order[n],
-                        columns=original_order[n]
-                    )
-
-                #################################################
-                # Experimentally introduce a weighting mechanism, use the exponential weight; Already proved it's not a good idea
-                # num_com = mat_tofuse_crop.shape[0] / aff[n].shape[0]
-                # alpha = pow(2, num_com) - 1
-                # aff0_temp = alpha * aff0_temp + (1-alpha) * aff[n]
-
-                # aff0_temp = _B0_normalized(aff0_temp, alpha=normalization_factor)
+                t0 = time.time()
                 aff0_temp = _stable_normalized_pd(aff0_temp)
-                # aff0_temp = check_symmetric(aff0_temp, raise_warning=False)
-
                 aff_next[n] = np.add(aff0_temp, aff_next[n])
+                print(f"[{n},{j}] final_normalization: {time.time() - t0:.4f}s")
 
             aff_next[n] = np.divide(aff_next[n], len(aff) - 1)
-            # aff_next[n] = _stable_normalized_pd(aff_next[n])
 
-        # put the value in aff_next back to aff
         for k in range(len(aff)):
             aff[k] = aff_next[k]
 
     for n, mat in enumerate(aff):
         aff[n] = _stable_normalized_pd(mat)
-        # aff[n] = check_symmetric(mat, raise_warning=False)
 
-    end_time = time.time()
-    print("Diffusion ends! Times: {}s".format(end_time - start_time))
+    print("Diffusion ends! Times: {:.2f}s".format(time.time() - start_time))
     return aff

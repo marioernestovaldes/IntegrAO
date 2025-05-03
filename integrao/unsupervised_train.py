@@ -12,6 +12,7 @@ import numpy as np
 import networkx as nx
 import time
 
+from scipy.sparse import csr_matrix
 
 from integrao.IntegrAO_unsupervised import IntegrAO
 from integrao.dataset import GraphDataset
