@@ -71,7 +71,12 @@ class integrao_integrater(object):
         for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
 
-            if view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
+            if name == 'protein_cosine':
+                print(f'Using Cosine distance for dataset {name}...')
+                from sklearn.metrics.pairwise import cosine_distances
+                # compute cosine distances
+                dist_mat = cosine_distances(view.values)
+            elif view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
                 print(f'Using Euclidean distance for dataset {name}...')
                 dist_mat = dist2(view.values, view.values)
             else:
@@ -223,9 +228,22 @@ class integrao_predictor(object):
 
     def network_diffusion(self):
         S_dfs = []
-        for i in range(0, len(self.datasets)):
+        for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
-            dist_mat = dist2(view.values, view.values)
+
+            if name == 'protein_cosine':
+                print(f'Using Cosine distance for dataset {name}...')
+                from sklearn.metrics.pairwise import cosine_distances
+                # compute cosine distances
+                dist_mat = cosine_distances(view.values)
+            elif view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
+                print(f'Using Euclidean distance for dataset {name}...')
+                dist_mat = dist2(view.values, view.values)
+            else:
+                print(f'Using Gower distance for dataset {name}...')
+                view = view.astype(float)  # Convert all numerical columns to float
+                dist_mat = gower.gower_matrix(view)
+
             S_mat = snf.compute.affinity_matrix(
                 dist_mat, K=self.neighbor_size, mu=self.mu
             )
