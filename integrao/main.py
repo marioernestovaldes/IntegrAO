@@ -182,7 +182,8 @@ def handle_zeros_in_scale(scale, copy=True):
     return scale
 
 
-def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size=20, fusing_iteration=20, normalization_factor=1.0):
+def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size=20, fusing_iteration=20,
+                  normalization_factor=1.0):
     """
     Performs Patient Graph Fusion on `aff` matrices
 
@@ -226,9 +227,8 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
 
     # First, normalize different networks to avoid scale problems, it is compatible with pandas dataframe
     for n, mat in enumerate(aff):
-        
         # normalize affinity matrix based on strength of edges
-        # mat = mat / np.nansum(mat, axis=1, keepdims=True) 
+        # mat = mat / np.nansum(mat, axis=1, keepdims=True)
         aff[n] = _stable_normalized_pd(mat)
         # aff[n] = check_symmetric(mat, raise_warning=False)
 
@@ -275,8 +275,8 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                 # Next, let's crop mat_tofuse
                 num_common = len(dicts_common[(n, j)])
                 to_drop_mat = mat_tofuse.columns[
-                    num_common : mat_tofuse.shape[1]
-                ].values.tolist()
+                              num_common: mat_tofuse.shape[1]
+                              ].values.tolist()
                 mat_tofuse_crop = mat_tofuse.drop(to_drop_mat, axis=1)
                 mat_tofuse_crop = mat_tofuse_crop.drop(to_drop_mat, axis=0)
 
@@ -287,28 +287,54 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                     columns=original_order[n],
                 )
 
-
                 mat_tofuse_union = nzW_identity + mat_tofuse_crop
                 mat_tofuse_union.fillna(0.0, inplace=True)
-                mat_tofuse_union = _scaling_normalized_pd(mat_tofuse_union, ratio=mat_tofuse_crop.shape[0]/nzW_identity.shape[0])
+                mat_tofuse_union = _scaling_normalized_pd(mat_tofuse_union,
+                                                          ratio=mat_tofuse_crop.shape[0] / nzW_identity.shape[0])
                 mat_tofuse_union = check_symmetric(mat_tofuse_union, raise_warning=False)
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1)
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=0)
 
                 # Now we are ready to do the diffusion
-                nzW_T = np.transpose(nzW)
-                aff0_temp = nzW.dot(
-                    mat_tofuse_union.dot(nzW_T)
-                )  # Matmul is not working, but .dot() is good
 
+                if newW[n].shape[0] < 2000:
+                    print('Using dense matrix...')
+                    nzW_T = np.transpose(nzW)
 
-                ################################################# 
-                # Experimentally introduce a weighting machanisim, use the exponential weight; Already proved it's not a good idea
+                    start = time.time()
+                    aff0_temp = nzW.dot(
+                        mat_tofuse_union.dot(nzW_T)
+                    )
+                    elapsed = time.time() - start
+                    print(f"Dense multiplication took {elapsed:.4f} seconds.")
+
+                else:
+                    print('Using sparse matrix...')
+                    from scipy.sparse import csr_matrix
+
+                    nzW_sparse = csr_matrix(newW[n].values)
+                    nzW_T_sparse = nzW_sparse.transpose()
+                    mat_union_dense = mat_tofuse_union.values
+
+                    start = time.time()
+                    intermediate = nzW_sparse @ mat_union_dense  # sparse × dense → dense
+                    aff0_temp_np = intermediate @ nzW_T_sparse  # dense × sparse → dense
+                    elapsed = time.time() - start
+                    print(f"Sparse multiplication took {elapsed:.4f} seconds.")
+
+                    aff0_temp = pd.DataFrame(
+                        aff0_temp_np,
+                        index=original_order[n],
+                        columns=original_order[n]
+                    )
+
+                #################################################
+                # Experimentally introduce a weighting mechanism, use the exponential weight; Already proved it's not a good idea
                 # num_com = mat_tofuse_crop.shape[0] / aff[n].shape[0]
                 # alpha = pow(2, num_com) - 1
                 # aff0_temp = alpha * aff0_temp + (1-alpha) * aff[n]
 
-                #aff0_temp = _B0_normalized(aff0_temp, alpha=normalization_factor)
+                # aff0_temp = _B0_normalized(aff0_temp, alpha=normalization_factor)
                 aff0_temp = _stable_normalized_pd(aff0_temp)
                 # aff0_temp = check_symmetric(aff0_temp, raise_warning=False)
 
