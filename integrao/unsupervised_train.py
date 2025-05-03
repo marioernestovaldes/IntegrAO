@@ -18,25 +18,43 @@ from integrao.dataset import GraphDataset
 import torch_geometric.transforms as T
 
 
-def tsne_loss(P, activations):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    n = activations.size(0)
-    alpha = 1
+def tsne_loss(P, activations, threshold=10000):
+    """
+    Computes KL divergence loss between P and Q.
+    Automatically uses CPU if P is too large.
+    """
     eps = 1e-12
-    sum_act = torch.sum(torch.pow(activations, 2), 1)
+
+    # Detect whether P is large and needs CPU fallback
+    n = P.shape[0]
+    use_cpu = n >= threshold
+    device = activations.device
+
+    if use_cpu:
+        print(f'P is too large ({n}). Using CPU for tsne_loss calculation...')
+        P_cpu = P.cpu()
+        activations_cpu = activations.detach().cpu()
+    else:
+        print(f'Using GPU for tsne_loss calculation...')
+        P_cpu = P.to(device)
+        activations_cpu = activations  # already on GPU
+
+    sum_act = torch.sum(torch.pow(activations_cpu, 2), 1)
     Q = (
         sum_act
         + sum_act.view([-1, 1])
-        - 2 * torch.matmul(activations, torch.transpose(activations, 0, 1))
+        - 2 * torch.matmul(activations_cpu, torch.transpose(activations_cpu, 0, 1))
     )
-    Q = Q / alpha
-    Q = torch.pow(1 + Q, -(alpha + 1) / 2)
-    Q = Q * autograd.Variable(1 - torch.eye(n), requires_grad=False).to(device)
+    Q = Q / 1.0
+    Q = torch.pow(1 + Q, -1.0)
+    Q = Q * (1 - torch.eye(n, device=Q.device))
     Q = Q / torch.sum(Q)
     Q = torch.clamp(Q, min=eps)
-    C = torch.log((P + eps) / (Q + eps))
-    C = torch.sum(P * C)
-    return C
+
+    C = torch.log((P_cpu + eps) / (Q + eps))
+    C = torch.sum(P_cpu * C)
+
+    return C.to(device)  # Always return on GPU for training
 
 
 def adjust_learning_rate(optimizer, epoch):
