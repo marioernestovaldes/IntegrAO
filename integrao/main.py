@@ -245,6 +245,10 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
 
     for iteration in range(fusing_iteration):
 
+        print(f"\n-- Iteration {iteration + 1} --")
+
+        iteration_time = time.time()
+
         # Make a copy of the aff matrix for this iteration
         # goal is to update aff[n], but it is the average of all the defused matrices
         # Make a copy of add[n], and set it to 0
@@ -345,6 +349,8 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
         # put the value in aff_next back to aff
         for k in range(len(aff)):
             aff[k] = aff_next[k]
+
+        print(f"\nTime for Iteration {iteration + 1}: {time.time() - start_time}s")
 
     for n, mat in enumerate(aff):
         aff[n] = _stable_normalized_pd(mat)
