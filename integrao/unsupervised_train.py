@@ -19,45 +19,41 @@ import torch_geometric.transforms as T
 from scipy.sparse import csr_matrix
 
 
-def tsne_loss(P, activations, threshold=10000, sample_size=3000):
+def tsne_loss(P, activations, threshold_mb=8000, sample_size=10000):
     """
-    Computes KL divergence loss between P and Q.
-    Uses sampling if sample_size < n. Falls back to CPU if effective size >= threshold.
+    Computes KL divergence loss between similarity matrix P and low-dim activations.
 
     Parameters:
-    - P: torch.Tensor, shape (n, n) — similarity matrix
-    - activations: torch.Tensor, shape (n, d) — low-dimensional embeddings
-    - threshold: int — if effective size >= threshold, move to CPU
-    - sample_size: int — if set and < n, compute KL on a subset
+    - P: torch.Tensor (n, n) — high-dim similarities
+    - activations: torch.Tensor (n, d) — low-dim embeddings
+    - threshold_mb: float — max memory in MB before offloading to CPU (default: 8GB)
+    - sample_size: int — number of points to sample for approximation
 
     Returns:
-    - KL divergence (scalar tensor) on GPU
+    - Scalar tensor (KL divergence), computed on GPU if possible
     """
     eps = 1e-12
     n = P.shape[0]
     device = activations.device
 
-    # Decide whether to sample
-    effective_n = sample_size if sample_size and sample_size < n else n
-    use_cpu = effective_n >= threshold
-
-    if use_cpu:
-        # print(f"Using CPU for tsne_loss (effective N={effective_n})")
-        P = P.cpu()
-        activations = activations.detach().cpu()
-    else:
-        # print(f"Using GPU for tsne_loss (effective N={effective_n})")
-        P = P.to(device)
-        activations = activations  # already on GPU
-
-    # If using sampling, select subset of rows/cols
+    # Use sampling if desired
     if sample_size and sample_size < n:
         idx = torch.randperm(n)[:sample_size]
         P = P[idx][:, idx]
         activations = activations[idx]
         n = sample_size
 
-    # Compute pairwise squared distances
+    # Estimate memory: n x n float32 matrix (4 bytes per element)
+    estimated_bytes = (n ** 2) * 4
+    estimated_mb = estimated_bytes / (1024 ** 2)
+
+    use_cpu = estimated_mb > threshold_mb
+    if use_cpu:
+        P = P.cpu()
+        activations = activations.detach().cpu()
+        device = torch.device("cpu")
+
+    # Compute pairwise distances
     sum_act = torch.sum(activations**2, dim=1)
     Q = (
         sum_act.view([-1, 1]) + sum_act.view([1, -1])
@@ -169,8 +165,8 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         embeddings = list(embeddings.values())
         for i, X_embedding in enumerate(embeddings):
             n = P[i].shape[0]
-            sample_size = 3000 if n > 10000 else None  # use sampling only if too large
-            kl_loss += tsne_loss(P[i], X_embedding, threshold=10000, sample_size=sample_size)
+            sample_size = 5000 if n > 10000 else None  # use sampling only if too large
+            kl_loss += tsne_loss(P[i], X_embedding, sample_size=sample_size)
 
         # pairwise alignment loss between each pair of networks
         alignment_loss = np.array(0)
