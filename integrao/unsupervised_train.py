@@ -108,7 +108,8 @@ def P_preprocess(P):
     return P
 
 
-def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), neighbor_size=20, embedding_dims=50, alighment_epochs=1000):
+def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), neighbor_size=20, embedding_dims=64,
+                alighment_epochs=1000):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions.
@@ -126,7 +127,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
     start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    hidden_channels = 128 # TODO: change to using ymal file
+    hidden_channels = 128  # TODO: change to using ymal file
     dataset_num = len(P)
     feature_dims = []
     transform = T.Compose([

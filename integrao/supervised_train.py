@@ -85,7 +85,7 @@ def _load_pre_trained_weights(model, model_path, device):
 
     return model
 
-def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_original_order, data, clf_labels, model_path=None, P=np.array([]), neighbor_size=20, embedding_dims=50, alighment_epochs=1000, num_classes=2):
+def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_original_order, data, clf_labels, model_path=None, P=np.array([]), neighbor_size=20, embedding_dims=64, alighment_epochs=1000, num_classes=2):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions.
