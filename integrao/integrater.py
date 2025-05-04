@@ -22,7 +22,6 @@ except ImportError:
     subprocess.check_call(["pip", "install", "gower"])
     import gower  # Import again after installation
 from scipy.sparse import csr_matrix
-from sklearn.metrics.pairwise import cosine_distances
 
 
 class integrao_integrater(object):
@@ -75,6 +74,7 @@ class integrao_integrater(object):
 
             if name == 'protein-cosine':
                 print(f'Using Cosine distance for dataset {name}...')
+                from sklearn.metrics.pairwise import cosine_distances
                 # compute cosine distances
                 dist_mat = cosine_distances(view.values)
             elif view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
