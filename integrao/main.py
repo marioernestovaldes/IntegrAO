@@ -160,7 +160,7 @@ def _scaling_normalized_pd(W, ratio):
     np.fill_diagonal(W_np, 1-0.5*ratio)
     W = pd.DataFrame(W_np, index=W.index, columns=W.columns) 
 
-    W = check_symmetric(W, raise_warning=False)
+    # W = check_symmetric(W, raise_warning=False)
 
     return W
 
