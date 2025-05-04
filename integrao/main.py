@@ -350,7 +350,7 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
         for k in range(len(aff)):
             aff[k] = aff_next[k]
 
-        print(f"\nTime for Iteration {iteration + 1}: {time.time() - start_time}s")
+        print(f"\nTime for Iteration {iteration + 1}: {time.time() - iteration_time}s")
 
     for n, mat in enumerate(aff):
         aff[n] = _stable_normalized_pd(mat)
