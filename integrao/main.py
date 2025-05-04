@@ -299,7 +299,7 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                 # Now we are ready to do the diffusion
 
                 if newW[n].shape[0] < 2000:
-                    print('Using dense matrix...')
+                    # print('Using dense matrix...')
                     nzW_T = np.transpose(nzW)
 
                     start = time.time()
@@ -310,8 +310,7 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                     print(f"Dense multiplication took {elapsed:.4f} seconds.")
 
                 else:
-                    print('Using sparse matrix...')
-
+                    # print('Using sparse matrix...')
                     nzW_sparse = csr_matrix(newW[n].values)
                     nzW_T_sparse = nzW_sparse.transpose()
                     mat_union_dense = mat_tofuse_union.values
