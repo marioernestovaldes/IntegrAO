@@ -263,9 +263,6 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                 mat_tofuse_crop = mat_tofuse.drop(to_drop_mat, axis=1).drop(to_drop_mat, axis=0)
                 print(f"[{n},{j}] reindex_and_crop: {time.time() - t0:.4f}s")
 
-
-
-
                 t0 = time.time()
                 # nzW_identity = pd.DataFrame(np.identity(nzW.shape[0]), index=original_order[n],
                 #                             columns=original_order[n])
@@ -289,11 +286,9 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                     index=mat_tofuse_crop.index,
                     columns=mat_tofuse_crop.columns
                 )
-
                 mat_tofuse_union = mat_tofuse_union.reindex(original_order[n], axis=1).reindex(original_order[n],
                                                                                                axis=0)
                 print(f"[{n},{j}] identity_addition: {time.time() - t0:.4f}s")
-
 
                 if newW[n].shape[0] < 2000:
                     t0 = time.time()
