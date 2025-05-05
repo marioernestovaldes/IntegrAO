@@ -1,43 +1,42 @@
-from integrao.unsupervised_train import tsne_p_deep
-from integrao.supervised_train import tsne_p_deep_classification
-
-from integrao.main import dist2, integrao_fuse, _stable_normalized
-from integrao.util import data_indexing
-
-import snf
-import pandas as pd
-import numpy as np
 import os
 
+import numpy as np
+import pandas as pd
+import snf
 import torch
-import torch_geometric.transforms as T
 import torch.nn.functional as F
+import torch_geometric.transforms as T
+
 from integrao.dataset import GraphDataset
+from integrao.main import dist2, integrao_fuse, _stable_normalized
+from integrao.supervised_train import tsne_p_deep_classification
+from integrao.unsupervised_train import tsne_p_deep
+from integrao.util import data_indexing
 
 try:
     import gower  # Try importing Gower
 except ImportError:
     import subprocess
+
     print("Gower library not found. Installing now...")
     subprocess.check_call(["pip", "install", "gower"])
     import gower  # Import again after installation
-from scipy.sparse import csr_matrix
 
 
 class integrao_integrater(object):
     def __init__(
-        self,
-        datasets,
-        dataset_name=None,
-        modalities_name_list=None,
-        neighbor_size=None,
-        embedding_dims=64,
-        fusing_iteration=20,
-        normalization_factor=1.0,
-        alighment_epochs=1000,
-        beta=1.0,
-        mu=0.5,
-        random_state=42,
+            self,
+            datasets,
+            dataset_name=None,
+            modalities_name_list=None,
+            neighbor_size=None,
+            embedding_dims=64,
+            fusing_iteration=20,
+            normalization_factor=1.0,
+            alighment_epochs=1000,
+            beta=1.0,
+            mu=0.5,
+            random_state=42,
     ):
         self.datasets = datasets
         self.dataset_name = dataset_name
@@ -48,7 +47,7 @@ class integrao_integrater(object):
         self.alighment_epochs = alighment_epochs
         self.beta = beta
         self.mu = mu
-        self.random_state=random_state
+        self.random_state = random_state
 
         # data indexing
         (
@@ -61,7 +60,7 @@ class integrao_integrater(object):
         ) = data_indexing(self.datasets)
 
         # set neighbor size
-        if neighbor_size == None:
+        if neighbor_size is None:
             self.neighbor_size = int(datasets[0].shape[0] / 6)
         else:
             self.neighbor_size = neighbor_size
@@ -176,19 +175,19 @@ class integrao_integrater(object):
 
 class integrao_predictor(object):
     def __init__(
-        self,
-        datasets,
-        dataset_name=None,
-        modalities_name_list=None,
-        neighbor_size=None,
-        embedding_dims=64,
-        hidden_channels=128,
-        fusing_iteration=20,
-        normalization_factor=1.0,
-        alighment_epochs=1000,
-        beta=1.0,
-        mu=0.5,
-        num_classes=None,       
+            self,
+            datasets,
+            dataset_name=None,
+            modalities_name_list=None,
+            neighbor_size=None,
+            embedding_dims=64,
+            hidden_channels=128,
+            fusing_iteration=20,
+            normalization_factor=1.0,
+            alighment_epochs=1000,
+            beta=1.0,
+            mu=0.5,
+            num_classes=None,
     ):
         self.datasets = datasets
         self.dataset_name = dataset_name
@@ -213,7 +212,7 @@ class integrao_predictor(object):
         ) = data_indexing(self.datasets)
 
         # set neighbor size
-        if neighbor_size == None:
+        if neighbor_size is None:
             self.neighbor_size = int(datasets[0].shape[0] / 6)
         else:
             self.neighbor_size = neighbor_size
@@ -225,7 +224,6 @@ class integrao_predictor(object):
 
         if num_classes is not None:
             self.num_classes = num_classes
-        
 
     def network_diffusion(self):
         S_dfs = []
@@ -266,7 +264,6 @@ class integrao_predictor(object):
         )
         return self.fused_networks
 
-
     def _load_pre_trained_weights(self, model, model_path, device):
         try:
             state_dict = torch.load(model_path, map_location=device)
@@ -276,7 +273,7 @@ class integrao_predictor(object):
             print("Pre-trained weights not found. Training from scratch.")
 
         return model
-    
+
     def inference_unsupervised(self, model_path, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -296,7 +293,7 @@ class integrao_predictor(object):
                 self.neighbor_size,
                 modal.values,
                 self.fused_networks[modal_index].values,
-                transform=T.ToDevice(device),
+                transform=T.ToDevice(str(device)),
             )
             modal_dg = dataset[0]
 
@@ -305,9 +302,9 @@ class integrao_predictor(object):
 
         # Now to do the inference
         # ---------------------------------------------------------
-        embeddings= model(x_dict, edge_index_dict)
+        embeddings = model(x_dict, edge_index_dict)
         for i in range(len(new_datasets)):
-            embeddings[i] = embeddings[i].detach().cpu().numpy()  
+            embeddings[i] = embeddings[i].detach().cpu().numpy()
 
         final_embedding = np.array([]).reshape(0, self.embedding_dims)
         for key in self.dict_sampleToIndexs:
@@ -335,7 +332,7 @@ class integrao_predictor(object):
         Wall_final = _stable_normalized(Wall_final)
 
         return final_embedding_df, Wall_final
-    
+
     def interpret_unsupervised(self, model_path, result_dir, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -344,7 +341,6 @@ class integrao_predictor(object):
         model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims).to(device)
         model = self._load_pre_trained_weights(model, model_path, device)
 
-
         # explain the model
         from captum.attr import IntegratedGradients
 
@@ -352,11 +348,11 @@ class integrao_predictor(object):
         # while the remaining features and edge indices remain fixed.
         def custom_forward(x, static_x_dict, edge_index_dict, domain):
             x_dict = static_x_dict.copy()
-            x_dict[domain] = x 
+            x_dict[domain] = x
 
             out_dict = model(x_dict, edge_index_dict)
 
-            return out_dict[domain].sum(dim=1)   # iG requires scalar output; so we sum the output of the embeddings
+            return out_dict[domain].sum(dim=1)  # iG requires scalar output; so we sum the output of the embeddings
 
         # prepare the data
         x_dict = {}
@@ -369,7 +365,7 @@ class integrao_predictor(object):
                 self.neighbor_size,
                 modal.values,
                 self.fused_networks[modal_index].values,
-                transform=T.ToDevice(device),
+                transform=T.ToDevice(str(device)),
             )
             modal_dg = dataset[0]
 
@@ -380,7 +376,7 @@ class integrao_predictor(object):
         # ---------------------------------------------------------
         feat_importances = {}
         for domain in x_dict:
-            x_input = x_dict[domain] # The variable input for the current domain.
+            x_input = x_dict[domain]  # The variable input for the current domain.
             static_x = {k: x_dict[k] for k in x_dict}
 
             ig = IntegratedGradients(custom_forward)
@@ -395,10 +391,8 @@ class integrao_predictor(object):
                 feat_importances[domain] = []
             feat_importances[domain].append(attributions.detach().cpu().numpy())
 
-
         df_list = []
         for domain in feat_importances:
-
             # Concatenate along the first axis (nodes).
             feat_importances[domain] = np.concatenate(feat_importances[domain], axis=0)
             num_feats = feat_importances[domain].shape[1]
@@ -413,15 +407,15 @@ class integrao_predictor(object):
 
             print(f"Saved feature importances for domain {modalities_names[domain]} to {csv_path}")
 
-        return  df_list
-
+        return df_list
 
     def inference_supervised(self, model_path, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         from integrao.IntegrAO_supervised import IntegrAO
-        model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims, num_classes=self.num_classes).to(device)
+        model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims, num_classes=self.num_classes).to(
+            device)
         model = self._load_pre_trained_weights(model, model_path, device)
 
         x_dict = {}
@@ -435,7 +429,7 @@ class integrao_predictor(object):
                 self.neighbor_size,
                 modal.values,
                 self.fused_networks[modal_index].values,
-                transform=T.ToDevice(device),
+                transform=T.ToDevice(str(device)),
             )
             modal_dg = dataset[0]
 
@@ -452,17 +446,17 @@ class integrao_predictor(object):
         probs_np = probs.detach().cpu().numpy()  # Convert to NumPy array
 
         # Get predicted classes
-        class_preds = np.argmax(probs_np, axis=1)  # Get highest probability class
+        class_preds = np.argmax(probs_np, axis=1)  # Get the highest probability class
 
         return class_preds, probs_np  # Return both class labels and probabilities
-
 
     def interpret_supervised(self, model_path, result_dir, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
         from integrao.IntegrAO_supervised import IntegrAO
-        model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims, num_classes=self.num_classes).to(device)
+        model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims, num_classes=self.num_classes).to(
+            device)
         model = self._load_pre_trained_weights(model, model_path, device)
 
         # explain the model
@@ -472,14 +466,14 @@ class integrao_predictor(object):
         # while keeping the rest of the inputs (static_x_dict, edge_index_dict, and domain_sample_ids) fixed.
         def custom_forward(x, static_x_dict, edge_index_dict, domain, domain_sample_ids):
             x_dict = static_x_dict.copy()
-            x_dict[domain] = x 
+            x_dict[domain] = x
 
             _, _, output, _ = model(x_dict, edge_index_dict, domain_sample_ids)
 
             # Aggregate output per sample to a scalar.
-            # Here we sum over the class dimension (dim=1); adjust if you need a different reduction; for example just a single class.
+            # Here we sum over the class dimension (dim=1); adjust if you need a different reduction; for example
+            # just a single class.
             return output.sum(dim=1)
-
 
         # Prepare the data dictionaries for node features and edge indices.
         x_dict = {}
@@ -493,7 +487,7 @@ class integrao_predictor(object):
                 self.neighbor_size,
                 modal.values,
                 self.fused_networks[modal_index].values,
-                transform=T.ToDevice(device),
+                transform=T.ToDevice(str(device)),
             )
             modal_dg = dataset[0]
 
@@ -518,10 +512,8 @@ class integrao_predictor(object):
                 feat_importances[domain] = []
             feat_importances[domain].append(attributions.detach().cpu().numpy())
 
-
         df_list = []
         for domain in feat_importances:
-
             # Concatenate along the first axis (nodes).
             feat_importances[domain] = np.concatenate(feat_importances[domain], axis=0)
             num_feats = feat_importances[domain].shape[1]
@@ -535,5 +527,5 @@ class integrao_predictor(object):
             print(df.shape)
 
             print(f"Saved feature importances for domain {modalities_names[domain]} to {csv_path}")
-        
+
         return df_list
