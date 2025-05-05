@@ -7,44 +7,71 @@ from sklearn.utils.validation import (
     check_symmetric,
 )
 from snf.compute import _find_dominate_set
+from scipy.sparse import issparse
+import faiss
 
 
-def dist2(X, C):
+def dist2(X, C, faiss_threshold=5000, use_faiss_if_possible=True):
     """
-    Description: Computes the Euclidean distances between all pairs of data point given
+    Computes pairwise squared Euclidean distances between rows of X and C.
+    Uses Faiss when X == C and large enough.
 
-    Usage: dist2(X, C)
-    X: A data matrix where each row is a different data point
-    C: A data matrix where each row is a different data point. If this matrix is the same as X,
-    pairwise distances for all data points in X are computed.
+    Parameters
+    ----------
+    X, C : np.ndarray or sparse
+        Input data matrices.
+    faiss_threshold : int
+        Use Faiss if X == C and size >= threshold.
+    use_faiss_if_possible : bool
+        If False, disables Faiss usage.
 
-    Return: Returns an N x M matrix where N is the number of rows in X and M is the number of rows in C.
-
-    Author: Dr. Anna Goldenberg, Bo Wang, Aziz Mezlini, Feyyaz Demir
-    Python Version Rewrite: Rex Ma
-
-    Examples:
-        # Data1 is of size n x d_1, where n is the number of patients, d_1 is the number of genes,
-        # Data2 is of size n x d_2, where n is the number of patients, d_2 is the number of methylation
-        Dist1 = dist2(Data1, Data1)
-        Dist2 = dist2(Data2, Data2)
+    Returns
+    -------
+    D : ndarray
+        Matrix of squared Euclidean distances (not square-rooted)
     """
 
-    ndata = X.shape[0]
-    ncentres = C.shape[0]
+    if use_faiss_if_possible and X is C and X.shape[0] >= faiss_threshold:
+        if issparse(X):
+            print("[dist2] Converting sparse matrix to dense for Faiss...")
+            X = X.toarray()
 
-    sumsqX = np.sum(X * X, axis=1)
-    sumsqC = np.sum(C * C, axis=1)
+        print(f"[dist2] Using Faiss for squared Euclidean distances on shape {X.shape}")
+        X = X.astype('float32')
+        n = X.shape[0]
+        index = faiss.IndexFlatL2(X.shape[1])
+        index.add(X)
+        distances, indices = index.search(X, n)
+        D_full = np.full((n, n), np.nan, dtype=np.float32)
+        for i in range(n):
+            D_full[i, indices[i]] = distances[i]  # squared distances
+        np.fill_diagonal(D_full, 0.0)
 
-    XC = 2 * (np.matmul(X, np.transpose(C)))
+        return D_full
 
-    res = (
-            np.transpose(np.reshape(np.tile(sumsqX, ncentres), (ncentres, ndata)))
-            + np.reshape(np.tile(sumsqC, ndata), (ndata, ncentres))
-            - XC
-    )
+    else:
+        if issparse(X):
+            X = X.toarray()
+        if issparse(C):
+            C = C.toarray()
 
-    return res
+        ndata = X.shape[0]
+        ncentres = C.shape[0]
+
+        sumsqX = np.sum(X * X, axis=1)
+        sumsqC = np.sum(C * C, axis=1)
+
+        XC = 2 * (np.matmul(X, np.transpose(C)))
+
+        res = (
+                np.transpose(np.reshape(np.tile(sumsqX, ncentres), (ncentres, ndata)))
+                + np.reshape(np.tile(sumsqC, ndata), (ndata, ncentres))
+                - XC
+        )
+
+        np.fill_diagonal(res, 0.0)
+
+        return res  # squared distances
 
 
 def _find_dominate_set_relative(W, K=20):
