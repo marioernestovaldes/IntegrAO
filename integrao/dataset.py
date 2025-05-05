@@ -1,14 +1,12 @@
-from torch_geometric.data import InMemoryDataset, Data
-from snf.compute import _find_dominate_set
-from sklearn.utils.validation import (
-    check_array,
-    check_symmetric,
-    check_consistent_length,
-    
-)
 import networkx as nx
 import numpy as np
 import torch
+from sklearn.utils.validation import (
+    check_symmetric,
+)
+from snf.compute import _find_dominate_set
+from torch_geometric.data import InMemoryDataset, Data
+
 
 # custom dataset
 class GraphDataset(InMemoryDataset):
@@ -32,10 +30,10 @@ class GraphDataset(InMemoryDataset):
 
         data = Data(edge_index=edge_index)
         data.num_nodes = G.number_of_nodes()
-        
+
         # embedding 
         data.x = torch.from_numpy(feature).type(torch.float32)
-        
+
         self.data, self.slices = self.collate([data])
 
     def _download(self):
@@ -46,7 +44,6 @@ class GraphDataset(InMemoryDataset):
 
     def __repr__(self):
         return '{}()'.format(self.__class__.__name__)
-   
 
 
 # custom dataset
@@ -58,7 +55,7 @@ class GraphDataset_weight(InMemoryDataset):
         # preprocess the input into a pyg graph
         network = _find_dominate_set(network, K=neighbor_size)
         network = check_symmetric(network, raise_warning=False)
-        
+
         # Create a binary mask to extract non-zero values for edge weights
         mask = (network > 0.0).astype(float)
         G = nx.from_numpy_array(mask)
@@ -74,10 +71,10 @@ class GraphDataset_weight(InMemoryDataset):
 
         data = Data(edge_index=edge_index, edge_attr=torch.from_numpy(edge_weights).type(torch.float32))
         data.num_nodes = G.number_of_nodes()
-        
+
         # embedding 
         data.x = torch.from_numpy(feature).type(torch.float32)
-        
+
         self.data, self.slices = self.collate([data])
 
     def _download(self):
