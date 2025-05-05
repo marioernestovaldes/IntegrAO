@@ -1,22 +1,16 @@
 import torch
-import torch.autograd as autograd
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torch.backends.cudnn as cudnn
+import torch.nn as nn
 
-cudnn.benchmark = True
-
-from snf.compute import _find_dominate_set
+import os
 import numpy as np
-import networkx as nx
 import time
-
 
 from integrao.IntegrAO_unsupervised import IntegrAO
 from integrao.dataset import GraphDataset
 import torch_geometric.transforms as T
-from scipy.sparse import csr_matrix
+
+cudnn.benchmark = True
 
 
 def tsne_loss(P, activations, threshold_mb=8000, sample_size=10000):
@@ -54,10 +48,10 @@ def tsne_loss(P, activations, threshold_mb=8000, sample_size=10000):
         device = torch.device("cpu")
 
     # Compute pairwise distances
-    sum_act = torch.sum(activations**2, dim=1)
+    sum_act = torch.sum(activations ** 2, dim=1)
     Q = (
-        sum_act.view([-1, 1]) + sum_act.view([1, -1])
-        - 2.0 * activations @ activations.T
+            sum_act.view([-1, 1]) + sum_act.view([1, -1])
+            - 2.0 * activations @ activations.T
     )
     Q = (1 + Q).pow(-1.0)
     Q.fill_diagonal_(0.0)
@@ -79,7 +73,7 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def init_model(net, device, restore):
-    if restore is not None and os.path.exits(restore):
+    if restore is not None and os.path.exists(restore):
         net.load_state_dict(torch.load(restore))
         net.restored = True
         print("Restore model from: {}".format(os.path.abspath(restore)))
@@ -110,7 +104,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions.
     """
-    
+
     # Check inputs
     if isinstance(embedding_dims, float):
         print("Error: array P should have type float.")
@@ -123,11 +117,11 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
     start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    hidden_channels = 128 # TODO: change to using ymal file
+    hidden_channels = 128  # TODO: change to using ymal file
     dataset_num = len(P)
     feature_dims = []
     transform = T.Compose([
-        T.ToDevice(device), 
+        T.ToDevice(str(device)),
     ])
 
     x_dict = {}
@@ -137,10 +131,10 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         dataset = GraphDataset(neighbor_size, data[i], P[i], transform=transform)
         x_dict[i] = dataset[0].x
         edge_index_dict[i] = dataset[0].edge_index
-        
+
         feature_dims.append(np.shape(data[i])[1])
         print("Dataset {}:".format(i), np.shape(data[i]))
-    
+
         # preprocess similarity matrix for t-sne loss
         P[i] = P_preprocess(P[i])
         P[i] = torch.from_numpy(P[i]).float().to(device)
@@ -184,7 +178,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         loss.backward()
         optimizer.step()
 
-        if (epoch) % 100 == 0:
+        if epoch % 100 == 0:
             print(
                 "epoch {}: loss {}, align_loss:{:4f}".format(
                     epoch, loss.data.item(), alignment_loss.data.item()
@@ -197,9 +191,9 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
     # get the final embeddings for all samples
     embeddings = Project_GNN(x_dict, edge_index_dict)
     for i in range(dataset_num):
-        embeddings[i] = embeddings[i].detach().cpu().numpy()   
+        embeddings[i] = embeddings[i].detach().cpu().numpy()
 
-    # compute the average embedding for each sample
+        # compute the average embedding for each sample
     final_embedding = np.array([]).reshape(0, embedding_dims)
     for key in dict_sampleToIndexs:
         sample_embedding = np.zeros((1, embedding_dims))
