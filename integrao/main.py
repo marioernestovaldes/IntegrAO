@@ -1,13 +1,12 @@
+import time
+
 import numpy as np
 import pandas as pd
-import time
-from snf.compute import _flatten, _B0_normalized, _find_dominate_set
-from sklearn.utils.validation import (
-    check_array,
-    check_symmetric,
-    check_consistent_length,
-)
 from scipy.sparse import csr_matrix
+from sklearn.utils.validation import (
+    check_symmetric,
+)
+from snf.compute import _find_dominate_set
 
 
 def dist2(X, C):
@@ -40,9 +39,9 @@ def dist2(X, C):
     XC = 2 * (np.matmul(X, np.transpose(C)))
 
     res = (
-        np.transpose(np.reshape(np.tile(sumsqX, ncentres), (ncentres, ndata)))
-        + np.reshape(np.tile(sumsqC, ndata), (ndata, ncentres))
-        - XC
+            np.transpose(np.reshape(np.tile(sumsqX, ncentres), (ncentres, ndata)))
+            + np.reshape(np.tile(sumsqC, ndata), (ndata, ncentres))
+            - XC
     )
 
     return res
@@ -128,7 +127,7 @@ def _stable_normalized_pd(W):
 
     W_np = W.values
     np.fill_diagonal(W_np, 0.5)
-    W = pd.DataFrame(W_np, index=W.index, columns=W.columns) 
+    W = pd.DataFrame(W_np, index=W.index, columns=W.columns)
 
     W = check_symmetric(W, raise_warning=False)
 
@@ -154,11 +153,11 @@ def _scaling_normalized_pd(W, ratio):
     rowSum = np.sum(W, 1) - np.diag(W)
     rowSum[rowSum == 0] = 1
 
-    W = (W / rowSum) * 0.5 * ratio 
+    W = (W / rowSum) * 0.5 * ratio
 
     W_np = W.values
-    np.fill_diagonal(W_np, 1-0.5*ratio)
-    W = pd.DataFrame(W_np, index=W.index, columns=W.columns) 
+    np.fill_diagonal(W_np, 1 - 0.5 * ratio)
+    W = pd.DataFrame(W_np, index=W.index, columns=W.columns)
 
     # W = check_symmetric(W, raise_warning=False)
 
@@ -205,14 +204,14 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
     original_order: lists, required 
         The original order of each view
 
-    K : (0, N) int, optional
-        Hyperparameter normalization factor for scaling. Default: 20
+    neighbor_size : (0, N) int, optional
+        Hyperparameter neighbor_size. Default: 20
 
-    t : int, optional
-        Number of iterations to perform information swapping. Default: 20
+    fusing_iteration : int, optional
+        Number of iterations to perform. Default: 20
 
-    alpha : (0, 1) float, optional
-        Hyperparameter normalization factor for scaling. Default: 1.0
+    normalization_factor : (0, 1) float, optional
+        Hyperparameter normalization factor. Default: 1.0
 
     Returns
     -------
@@ -332,7 +331,8 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
                     )
 
                 #################################################
-                # Experimentally introduce a weighting mechanism, use the exponential weight; Already proved it's not a good idea
+                # Experimentally introduce a weighting mechanism, use the exponential weight;
+                # Already proved it's not a good idea
                 # num_com = mat_tofuse_crop.shape[0] / aff[n].shape[0]
                 # alpha = pow(2, num_com) - 1
                 # aff0_temp = alpha * aff0_temp + (1-alpha) * aff[n]
