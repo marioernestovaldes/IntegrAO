@@ -1,3 +1,4 @@
+contexttimer
 snfpy
 matplotlib==3.5.3
 networkx==3.0
