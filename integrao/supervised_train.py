@@ -1,22 +1,18 @@
 import torch
 import torch.autograd as autograd
-import torch.nn as nn
-import torch.nn.functional as F
-import torch.optim as optim
 import torch.backends.cudnn as cudnn
-
-cudnn.benchmark = True
+import torch.nn as nn
 
 import numpy as np
-import pandas as pd
-import networkx as nx
 import time
 import os
-from snf.compute import _find_dominate_set
 
 from integrao.IntegrAO_supervised import IntegrAO
 from integrao.dataset import GraphDataset
 import torch_geometric.transforms as T
+
+cudnn.benchmark = True
+
 
 def tsne_loss(P, activations):
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -25,9 +21,9 @@ def tsne_loss(P, activations):
     eps = 1e-12
     sum_act = torch.sum(torch.pow(activations, 2), 1)
     Q = (
-        sum_act
-        + sum_act.view([-1, 1])
-        - 2 * torch.matmul(activations, torch.transpose(activations, 0, 1))
+            sum_act
+            + sum_act.view([-1, 1])
+            - 2 * torch.matmul(activations, torch.transpose(activations, 0, 1))
     )
     Q = Q / alpha
     Q = torch.pow(1 + Q, -(alpha + 1) / 2)
@@ -48,7 +44,7 @@ def adjust_learning_rate(optimizer, epoch):
 
 
 def init_model(net, device, restore):
-    if restore is not None and os.path.exits(restore):
+    if restore is not None and os.path.exists(restore):
         net.load_state_dict(torch.load(restore))
         net.restored = True
         print("Restore model from: {}".format(os.path.abspath(restore)))
@@ -72,6 +68,7 @@ def P_preprocess(P):
     P = np.maximum(P, 1e-12)
     return P
 
+
 def _load_pre_trained_weights(model, model_path, device):
     try:
         state_dict = torch.load(
@@ -85,12 +82,15 @@ def _load_pre_trained_weights(model, model_path, device):
 
     return model
 
-def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_original_order, data, clf_labels, model_path=None, P=np.array([]), neighbor_size=20, embedding_dims=64, alighment_epochs=1000, num_classes=2):
+
+def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_original_order, data, clf_labels,
+                               model_path=None, P=np.array([]), neighbor_size=20, embedding_dims=64,
+                               alighment_epochs=1000, num_classes=2):
     """
     Runs t-SNE on the dataset in the NxN matrix P to extract embedding vectors
     to no_dims dimensions.
     """
-    
+
     # Check inputs
     if isinstance(embedding_dims, float):
         print("Error: array P should have type float.")
@@ -103,11 +103,11 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
     start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
-    hidden_channels = 128 # TODO: change to using ymal file
+    hidden_channels = 128  # TODO: change to using ymal file
     dataset_num = len(P)
     feature_dims = []
     transform = T.Compose([
-        T.ToDevice(device), 
+        T.ToDevice(str(device)),
     ])
 
     # clf_labels is a dataframe
@@ -120,17 +120,17 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
         dataset = GraphDataset(neighbor_size, data[i], P[i], transform=transform)
         x_dict[i] = dataset[0].x
         edge_index_dict[i] = dataset[0].edge_index
-        
+
         feature_dims.append(np.shape(data[i])[1])
         print("Dataset {}:".format(i), np.shape(data[i]))
-    
+
         # preprocess similarity matrix for t-sne kl loss
         P[i] = P_preprocess(P[i])
         P[i] = torch.from_numpy(P[i]).float().to(device)
 
-        
-    net = IntegrAO(feature_dims, hidden_channels, embedding_dims, num_classes=num_classes).to(device)  # should load pre-trained model
-    
+    net = IntegrAO(feature_dims, hidden_channels, embedding_dims, num_classes=num_classes).to(
+        device)  # should load pre-trained model
+
     if model_path is not None:
         Project_GNN = _load_pre_trained_weights(net, model_path, device)
     else:
@@ -172,7 +172,7 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
         # if classification task, take the average of all the embeddings and calculate the classification loss
         clf_loss = c_cn(pred, labels)
         loss += clf_loss
-            
+
         optimizer.zero_grad()
         loss.backward()
         optimizer.step()
@@ -190,7 +190,7 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
     # get the final embeddings for all samples
     embeddings, X_embedding_avg, preds, _ = Project_GNN(x_dict, edge_index_dict, dict_original_order)
     pred = pred.detach().cpu().numpy()
-            
+
     # Now I need to put X_embedding_avg in order
     final_embeddings = X_embedding_avg.detach().cpu().numpy()
 
