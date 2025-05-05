@@ -13,6 +13,8 @@ from integrao.supervised_train import tsne_p_deep_classification
 from integrao.unsupervised_train import tsne_p_deep
 from integrao.util import data_indexing
 
+import contexttimer
+
 try:
     import gower  # Try importing Gower
 except ImportError:
@@ -71,18 +73,21 @@ class integrao_integrater(object):
         for i, name in zip(range(len(self.datasets)), self.modalities_name_list):
             view = self.datasets[i]
 
-            if name == 'protein-cosine':
-                print(f'Using Cosine distance for dataset {name}...')
-                from sklearn.metrics.pairwise import cosine_distances
-                # compute cosine distances
-                dist_mat = cosine_distances(view.values)
-            elif view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
-                print(f'Using Euclidean distance for dataset {name}...')
-                dist_mat = dist2(view.values, view.values)
-            else:
-                print(f'Using Gower distance for dataset {name}...')
-                view = view.astype(float)  # Convert all numerical columns to float
-                dist_mat = gower.gower_matrix(view)
+            with contexttimer.Timer() as t:
+                if name == 'protein-cosine':
+                    print(f'Using Cosine distance for dataset {name}...')
+                    from sklearn.metrics.pairwise import cosine_distances
+                    # compute cosine distances
+                    dist_mat = cosine_distances(view.values)
+                elif view.apply(pd.api.types.is_numeric_dtype).all() and view.nunique().max() > 2:
+                    print(f'Using Euclidean distance for dataset {name}...')
+                    dist_mat = dist2(view.values, view.values)
+                else:
+                    print(f'Using Gower distance for dataset {name}...')
+                    view = view.astype(float)  # Convert all numerical columns to float
+                    dist_mat = gower.gower_matrix(view)
+
+                print(f"Pairwise distances calculation for dataset {name} took {t.elapsed:.4f} seconds")
 
             S_mat = snf.compute.affinity_matrix(
                 dist_mat, K=self.neighbor_size, mu=self.mu
