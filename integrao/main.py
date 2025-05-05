@@ -9,69 +9,35 @@ from sklearn.utils.validation import (
 from snf.compute import _find_dominate_set
 from scipy.sparse import issparse
 import faiss
+import contexttimer
 
 
-def dist2(X, C, faiss_threshold=5000, use_faiss_if_possible=True):
+def dist2(X, C):
     """
-    Computes pairwise squared Euclidean distances between rows of X and C.
-    Uses Faiss when X == C and large enough.
+    Computes pairwise squared Euclidean distances for a matrix X using faiss library.
 
     Parameters
     ----------
     X, C : np.ndarray or sparse
         Input data matrices.
-    faiss_threshold : int
-        Use Faiss if X == C and size >= threshold.
-    use_faiss_if_possible : bool
-        If False, disables Faiss usage.
 
     Returns
     -------
     D : ndarray
-        Matrix of squared Euclidean distances (not square-rooted)
+        Matrix of squared Euclidean distances
     """
 
-    if use_faiss_if_possible and X is C and X.shape[0] >= faiss_threshold:
-        if issparse(X):
-            print("[dist2] Converting sparse matrix to dense for Faiss...")
-            X = X.toarray()
+    X = X.astype('float32')
+    n = X.shape[0]
+    index = faiss.IndexFlatL2(X.shape[1])
+    index.add(X)
+    distances, indices = index.search(X, n)
+    D_full = np.full((n, n), np.nan, dtype=np.float32)
+    for i in range(n):
+        D_full[i, indices[i]] = distances[i]  # squared distances
+    np.fill_diagonal(D_full, 0.0)
 
-        print(f"[dist2] Using Faiss for squared Euclidean distances on shape {X.shape}")
-        X = X.astype('float32')
-        n = X.shape[0]
-        index = faiss.IndexFlatL2(X.shape[1])
-        index.add(X)
-        distances, indices = index.search(X, n)
-        D_full = np.full((n, n), np.nan, dtype=np.float32)
-        for i in range(n):
-            D_full[i, indices[i]] = distances[i]  # squared distances
-        np.fill_diagonal(D_full, 0.0)
-
-        return D_full
-
-    else:
-        if issparse(X):
-            X = X.toarray()
-        if issparse(C):
-            C = C.toarray()
-
-        ndata = X.shape[0]
-        ncentres = C.shape[0]
-
-        sumsqX = np.sum(X * X, axis=1)
-        sumsqC = np.sum(C * C, axis=1)
-
-        XC = 2 * (np.matmul(X, np.transpose(C)))
-
-        res = (
-                np.transpose(np.reshape(np.tile(sumsqX, ncentres), (ncentres, ndata)))
-                + np.reshape(np.tile(sumsqC, ndata), (ndata, ncentres))
-                - XC
-        )
-
-        np.fill_diagonal(res, 0.0)
-
-        return res  # squared distances
+    return D_full
 
 
 def _find_dominate_set_relative(W, K=20):
