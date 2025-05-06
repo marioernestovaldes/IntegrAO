@@ -66,9 +66,7 @@ def _find_dominate_set_relative(W, K=20):
     # normalize by strength of remaining edges
     Wk = Wk / np.nansum(Wk, axis=1, keepdims=True)
 
-    Ws = Wk + np.transpose(Wk)
-
-    return Ws
+    return Wk + np.transpose(Wk)
 
 
 def _stable_normalized(W):
@@ -350,5 +348,5 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
         # aff[n] = check_symmetric(mat, raise_warning=False)
 
     end_time = time.time()
-    print("Diffusion ends! Times: {}s".format(end_time - start_time))
+    print(f"Diffusion ends! Times: {end_time - start_time}s")
     return aff
