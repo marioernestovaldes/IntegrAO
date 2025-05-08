@@ -13,7 +13,7 @@ import torch_geometric.transforms as T
 cudnn.benchmark = True
 
 
-def tsne_loss(P, activations, threshold_mb=8000, sample_size=10000):
+def tsne_loss(P, activations, threshold_mb=32000, sample_size=10000):
     """
     Computes KL divergence loss between similarity matrix P and low-dim activations.
 
@@ -55,11 +55,25 @@ def tsne_loss(P, activations, threshold_mb=8000, sample_size=10000):
     )
     Q = (1 + Q).pow(-1.0)
     Q.fill_diagonal_(0.0)
-    Q = Q / Q.sum()
+
+    # Normalize Q
+    Q_sum = Q.sum().item()
+    Q = Q / Q_sum
     Q = torch.clamp(Q, min=eps)
 
-    P = P / P.sum()
-    C = torch.sum(P * torch.log((P + eps) / (Q + eps)))
+    # Normalize P
+    P_sum = P.sum().item()
+    P = P / P_sum
+
+    # KL divergence
+    log_div = torch.log((P + eps) / (Q + eps))
+    if torch.isnan(log_div).any():
+        print("[tsne_loss] Warning: NaNs detected in log(P/Q)")
+
+    C = torch.sum(P * log_div)
+
+    if torch.isnan(C):
+        print("[tsne_loss] KL loss is NaN")
 
     return C.to(device)
 
