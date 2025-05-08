@@ -47,7 +47,7 @@ def init_model(net, device, restore):
     if restore is not None and os.path.exists(restore):
         net.load_state_dict(torch.load(restore))
         net.restored = True
-        print("Restore model from: {}".format(os.path.abspath(restore)))
+        print(f"Restore model from: {os.path.abspath(restore)}")
 
     else:
         pass
@@ -99,7 +99,7 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
         print("Error: number of dimensions should be an integer.")
         return -1
 
-    print("Starting supervised fineting!")
+    print("Starting supervised finetuning!")
     start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -122,7 +122,7 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
         edge_index_dict[i] = dataset[0].edge_index
 
         feature_dims.append(np.shape(data[i])[1])
-        print("Dataset {}:".format(i), np.shape(data[i]))
+        print(f"Dataset {i}:", np.shape(data[i]))
 
         # preprocess similarity matrix for t-sne kl loss
         P[i] = P_preprocess(P[i])
@@ -195,6 +195,6 @@ def tsne_p_deep_classification(dicts_commonIndex, dict_sampleToIndexs, dict_orig
     final_embeddings = X_embedding_avg.detach().cpu().numpy()
 
     end_time = time.time()
-    print("Manifold alignment ends! Times: {}s".format(end_time - start_time))
+    print(f"Manifold alignment ends! Times: {end_time - start_time}s")
 
     return final_embeddings, Project_GNN, preds
