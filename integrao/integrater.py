@@ -417,6 +417,47 @@ class integrao_predictor(object):
 
         return df_list
 
+    # def inference_supervised(self, model_path, new_datasets, modalities_names):
+    #     # loop through the new_dataset and create Graphdatase
+    #     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    #
+    #     from integrao.IntegrAO_supervised import IntegrAO
+    #     model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims, num_classes=self.num_classes).to(
+    #         device)
+    #     model = self._load_pre_trained_weights(model, model_path, device)
+    #
+    #     x_dict = {}
+    #     edge_index_dict = {}
+    #     for i, modal in enumerate(new_datasets):
+    #         # find the index of the modal in the self.modalities_name_list
+    #         model_name = modalities_names[i]
+    #         modal_index = self.modalities_name_list.index(model_name)
+    #
+    #         dataset = GraphDataset(
+    #             self.neighbor_size,
+    #             modal.values,
+    #             self.fused_networks[modal_index].values,
+    #             transform=T.ToDevice(str(device)),
+    #         )
+    #         modal_dg = dataset[0]
+    #
+    #         x_dict[modal_index] = modal_dg.x
+    #         edge_index_dict[modal_index] = modal_dg.edge_index
+    #
+    #     # Now to do the inference
+    #     final_embeddings, _, preds, id_list = model(
+    #         x_dict, edge_index_dict, self.dict_original_order
+    #     )
+    #
+    #     # Convert logits to probabilities
+    #     probs = F.softmax(preds, dim=1)
+    #     probs_np = probs.detach().cpu().numpy()  # Convert to NumPy array
+    #
+    #     # Get predicted classes
+    #     class_preds = np.argmax(probs_np, axis=1)  # Get the highest probability class
+    #
+    #     return class_preds, probs_np  # Return both class labels and probabilities
+
     def inference_supervised(self, model_path, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
         device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -449,14 +490,11 @@ class integrao_predictor(object):
             x_dict, edge_index_dict, self.dict_original_order
         )
 
-        # Convert logits to probabilities
-        probs = F.softmax(preds, dim=1)
-        probs_np = probs.detach().cpu().numpy()  # Convert to NumPy array
+        preds = F.softmax(preds, dim=1)
+        preds = preds.detach().cpu().numpy()
+        preds = np.argmax(preds, axis=1)
 
-        # Get predicted classes
-        class_preds = np.argmax(probs_np, axis=1)  # Get the highest probability class
-
-        return class_preds, probs_np  # Return both class labels and probabilities
+        return preds
 
     def interpret_supervised(self, model_path, result_dir, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
