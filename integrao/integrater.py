@@ -464,7 +464,7 @@ class integrao_predictor(object):
 
         from integrao.IntegrAO_supervised import IntegrAO
         model = IntegrAO(self.feature_dims, self.hidden_channels, self.embedding_dims, num_classes=self.num_classes).to(
-            device)
+            str(device))
         model = self._load_pre_trained_weights(model, model_path, device)
 
         x_dict = {}
@@ -494,7 +494,8 @@ class integrao_predictor(object):
         preds = preds.detach().cpu().numpy()
         preds = np.argmax(preds, axis=1)
 
-        return preds
+        # return both the predictions and indexes; useful when using combinations of datasets with different sizes
+        return preds, id_list
 
     def interpret_supervised(self, model_path, result_dir, new_datasets, modalities_names):
         # loop through the new_dataset and create Graphdatase
