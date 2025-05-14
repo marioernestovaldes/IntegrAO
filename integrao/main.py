@@ -348,5 +348,5 @@ def integrao_fuse(aff, dicts_common, dicts_unique, original_order, neighbor_size
         # aff[n] = check_symmetric(mat, raise_warning=False)
 
     end_time = time.time()
-    print(f"Diffusion ends! Times: {end_time - start_time}s")
+    print(f"\nDiffusion ends! Times: {end_time - start_time}s")
     return aff

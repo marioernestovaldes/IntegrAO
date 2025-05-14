@@ -1,81 +1,37 @@
 import torch
-import torch.backends.cudnn as cudnn
+import torch.autograd as autograd
 import torch.nn as nn
-
-import os
-import numpy as np
-import time
-
-from integrao.IntegrAO_unsupervised import IntegrAO
-from integrao.dataset import GraphDataset
-import torch_geometric.transforms as T
+import torch.nn.functional as F
+import torch.optim as optim
+import torch.backends.cudnn as cudnn
 
 cudnn.benchmark = True
 
+from snf.compute import _find_dominate_set
+import numpy as np
+import networkx as nx
+import time
 
-def tsne_loss(P, activations, threshold_mb=32000, sample_size=10000):
-    """
-    Computes KL divergence loss between similarity matrix P and low-dim activations.
 
-    Parameters:
-    - P: torch.Tensor (n, n) — high-dim similarities
-    - activations: torch.Tensor (n, d) — low-dim embeddings
-    - threshold_mb: float — max memory in MB before offloading to CPU (default: 8GB)
-    - sample_size: int — number of points to sample for approximation
-
-    Returns:
-    - Scalar tensor (KL divergence), computed on GPU if possible
-    """
+def tsne_loss(P, activations):
+    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
+    n = activations.size(0)
+    alpha = 1
     eps = 1e-12
-    n = P.shape[0]
-    device = activations.device
-
-    # Use sampling if desired
-    if sample_size and sample_size < n:
-        idx = torch.randperm(n)[:sample_size]
-        P = P[idx][:, idx]
-        activations = activations[idx]
-        n = sample_size
-
-    # Estimate memory: n x n float32 matrix (4 bytes per element)
-    estimated_bytes = (n ** 2) * 4
-    estimated_mb = estimated_bytes / (1024 ** 2)
-
-    use_cpu = estimated_mb > threshold_mb
-    if use_cpu:
-        P = P.cpu()
-        activations = activations.detach().cpu()
-        device = torch.device("cpu")
-
-    # Compute pairwise distances
-    sum_act = torch.sum(activations ** 2, dim=1)
+    sum_act = torch.sum(torch.pow(activations, 2), 1)
     Q = (
-            sum_act.view([-1, 1]) + sum_act.view([1, -1])
-            - 2.0 * activations @ activations.T
+        sum_act
+        + sum_act.view([-1, 1])
+        - 2 * torch.matmul(activations, torch.transpose(activations, 0, 1))
     )
-    Q = (1 + Q).pow(-1.0)
-    Q.fill_diagonal_(0.0)
-
-    # Normalize Q
-    Q_sum = Q.sum().item()
-    Q = Q / Q_sum
+    Q = Q / alpha
+    Q = torch.pow(1 + Q, -(alpha + 1) / 2)
+    Q = Q * autograd.Variable(1 - torch.eye(n), requires_grad=False).to(device)
+    Q = Q / torch.sum(Q)
     Q = torch.clamp(Q, min=eps)
-
-    # Normalize P
-    P_sum = P.sum().item()
-    P = P / P_sum
-
-    # KL divergence
-    log_div = torch.log((P + eps) / (Q + eps))
-    if torch.isnan(log_div).any():
-        print("[tsne_loss] Warning: NaNs detected in log(P/Q)")
-
-    C = torch.sum(P * log_div)
-
-    if torch.isnan(C):
-        print("[tsne_loss] KL loss is NaN")
-
-    return C.to(device)
+    C = torch.log((P + eps) / (Q + eps))
+    C = torch.sum(P * C)
+    return C
 
 
 def adjust_learning_rate(optimizer, epoch):
@@ -127,7 +83,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         print("Error: number of dimensions should be an integer.")
         return -1
 
-    print("Starting unsupervised embedding extraction!")
+    print("\nStarting unsupervised embedding extraction!")
     start_time = time.time()
     device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
 
@@ -219,6 +175,6 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         final_embedding = np.concatenate((final_embedding, sample_embedding), axis=0)
 
     end_time = time.time()
-    print("Manifold alignment ends! Times: {}s".format(end_time - start_time))
+    print(f"Manifold alignment ends! Times: {end_time - start_time}s")
 
     return final_embedding, Project_GNN
