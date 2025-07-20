@@ -17,24 +17,50 @@ from integrao.dataset import GraphDataset
 import torch_geometric.transforms as T
 
 
-def tsne_loss(P, activations):
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    n = activations.size(0)
-    alpha = 1
+def tsne_loss(P, activations, *, sample_size=None, rng=None):
+    """
+    KL(P ‖ Q) with optional subset sampling.
+
+    • If `sample_size` < N, the loss is estimated on a random subset of
+      that many rows/columns to save memory.
+
+    • After sub‑sampling we *renormalise* both P and Q so that
+      their entries sum to 1, ensuring the KL term is ≥ 0.
+    """
+
     eps = 1e-12
-    sum_act = torch.sum(torch.pow(activations, 2), 1)
+
+    device = activations.device
+    n = activations.size(0)
+
+    # ---------- optional sub‑sampling ---------------------------------
+    if sample_size is not None and sample_size < n:
+        if rng is None:
+            rng = torch.Generator(device=device)
+        idx = torch.randperm(n, generator=rng, device=device)[:sample_size]
+        activations = activations[idx]          # (s, d)
+        P = P[idx][:, idx]                      # (s, s)
+        n = sample_size
+
+    # ---------- compute Q ---------------------------------------------
+    alpha = 1.0
+    sum_act = torch.sum(activations.pow(2), dim=1)            # (n,)
     Q = (
-        sum_act
-        + sum_act.view([-1, 1])
-        - 2 * torch.matmul(activations, torch.transpose(activations, 0, 1))
-    )
-    Q = Q / alpha
+                sum_act
+                + sum_act.view([-1, 1])
+                - 2 * activations @ activations.t()
+        ) / alpha
     Q = torch.pow(1 + Q, -(alpha + 1) / 2)
-    Q = Q * autograd.Variable(1 - torch.eye(n), requires_grad=False).to(device)
-    Q = Q / torch.sum(Q)
-    Q = torch.clamp(Q, min=eps)
-    C = torch.log((P + eps) / (Q + eps))
-    C = torch.sum(P * C)
+    Q *= (1.0 - torch.eye(n, device=device))                  # zero diag
+    Q = Q.clamp_min_(eps)
+
+    # ---------- *renormalise* both matrices ---------------------------
+    P = P.clamp_min(eps)
+    P /= P.sum() + eps
+    Q /= Q.sum() + eps
+
+    # ---------- KL divergence -----------------------------------------
+    C = torch.sum(P * torch.log((P + eps) / (Q + eps)))
     return C
 
 
@@ -133,7 +159,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         embeddings = list(embeddings.values())
         for i, X_embedding in enumerate(embeddings):
             n = P[i].shape[0]
-            sample_size = 5000 if n > 10000 else None  # use sampling only if too large
+            sample_size = 10000 if n > 10000 else None  # use sampling only if too large
             kl_loss += tsne_loss(P[i], X_embedding)
 
         # pairwise alignment loss between each pair of networks
