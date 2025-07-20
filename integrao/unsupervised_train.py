@@ -28,7 +28,7 @@ def tsne_loss(P, activations, *, sample_size=None, rng=None):
       their entries sum to 1, ensuring the KL term is ≥ 0.
     """
 
-    eps = 1e-12
+    eps = torch.finfo(P.dtype).eps         # ← dtype‑aware epsilon
 
     device = activations.device
     n = activations.size(0)
@@ -160,7 +160,7 @@ def tsne_p_deep(dicts_commonIndex, dict_sampleToIndexs, data, P=np.array([]), ne
         for i, X_embedding in enumerate(embeddings):
             n = P[i].shape[0]
             sample_size = 10000 if n > 10000 else None  # use sampling only if too large
-            kl_loss += tsne_loss(P[i], X_embedding)
+            kl_loss += tsne_loss(P[i], X_embedding, sample_size=sample_size)
 
         # pairwise alignment loss between each pair of networks
         alignment_loss = np.array(0)
