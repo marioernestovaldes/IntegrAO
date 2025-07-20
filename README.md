@@ -35,7 +35,13 @@ $ pip install -r requirement.txt
 
 
 ## 🧬 Introduction
-High-throughput omics profiling advancements have greatly enhanced cancer patient stratification. However, incomplete data in multi-omics integration presents a significant challenge, as traditional methods like sample exclusion or imputation often compromise biological diversity and dependencies. Furthermore, the critical task of accurately classifying new patients with partial omics data into existing subtypes is commonly overlooked. We introduce IntegrAO, an unsupervised framework integrating incomplete multi-omics and classifying new biological samples. IntegrAO first combines partially overlapping patient graphs from diverse omics sources and utilizes graph neural networks to produce unified patient embeddings.
+High-throughput omics profiling advancements have greatly enhanced cancer patient stratification. However, incomplete 
+data in multi-omics integration presents a significant challenge, as traditional methods like sample exclusion or 
+imputation often compromise biological diversity and dependencies. Furthermore, the critical task of accurately 
+classifying new patients with partial omics data into existing subtypes is commonly overlooked. We introduce IntegrAO, 
+an unsupervised framework integrating incomplete multi-omics and classifying new biological samples. IntegrAO first 
+combines partially overlapping patient graphs from diverse omics sources and utilizes graph neural networks to produce 
+unified patient embeddings.
 
 An overview of IntegrAO can be seen below.
 
